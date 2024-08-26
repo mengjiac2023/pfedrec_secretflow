@@ -141,7 +141,6 @@ def trainFromdata(dataname, epochs=2,batch_size = 32):
         aggregator=aggregator,
         strategy='fed_avg_w',  # fl strategy
         backend="torch",  # backend support ['tensorflow', 'torch']
-        # aggregate=[1, 0, 0]
     )
 
     fl_model.fit(
@@ -380,7 +379,7 @@ def totaldata(dataname):
             })
         df.to_csv(f"total-client-{user_id}.csv", index=False)
 
-def evalute(model,clients,server,dataname,batch_size = 32):
+def evaluate(model,clients,server,dataname,batch_size = 32):
     textdata(dataname)
     num = len(clients)
     path_dict = {}
@@ -508,7 +507,7 @@ def main():
             # try:
             selected_model = models[int(model_choice) - 1]
             model, clients, server = loadmodel(selected_model)
-            hit_ratio, ndcg = evalute(model, clients, server, selected_model.split('-')[-2], int(batch_size))
+            hit_ratio, ndcg = evaluate(model, clients, server, selected_model.split('-')[-2], int(batch_size))
             print('模型的命中率HR@10为:', hit_ratio,'归一化折损累计增益NDCG@10为:', ndcg)
             # except (IndexError, ValueError):
             #     print("无效选择. 请重新输入.")
