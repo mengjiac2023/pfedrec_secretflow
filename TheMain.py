@@ -504,13 +504,13 @@ def main():
         if models:
             model_choice = input("输入模型序号进行加载: ")
             batch_size = input("设置batch_size: ")
-            # try:
-            selected_model = models[int(model_choice) - 1]
-            model, clients, server = loadmodel(selected_model)
-            hit_ratio, ndcg = evaluate(model, clients, server, selected_model.split('-')[-2], int(batch_size))
-            print('模型的命中率HR@10为:', hit_ratio,'归一化折损累计增益NDCG@10为:', ndcg)
-            # except (IndexError, ValueError):
-            #     print("无效选择. 请重新输入.")
+            try:
+                selected_model = models[int(model_choice) - 1]
+                model, clients, server = loadmodel(selected_model)
+                hit_ratio, ndcg = evaluate(model, clients, server, selected_model.split('-')[-2], int(batch_size))
+                print('模型的命中率HR@10为:', hit_ratio,'归一化折损累计增益NDCG@10为:', ndcg)
+            except (IndexError, ValueError):
+                print("无效选择. 请重新输入.")
     else:
         print("无效选择. 请输入 1, 2, 或者 3.")
 
