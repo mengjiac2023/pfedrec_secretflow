@@ -37,9 +37,7 @@ def dataLoder(dataname):
 
     rating = pd.merge(rating, item_id, on=['mid'], how='left')
     rating = rating[['userId', 'itemId', 'rating', 'timestamp']]
-    new_id = 67
-    original_id = new_to_original.loc[new_id]
-    # print(f"新ID {new_id} 对应的原始ID是 {original_id}")
+
     # DataLoader for training
     sample_generator = SampleGenerator(ratings=rating)
     validate_data = sample_generator.validate_data
