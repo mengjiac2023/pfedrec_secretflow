@@ -317,3 +317,302 @@ class NewFLModel(FLModel):
             callbacks.on_epoch_end(epoch=epoch)
         callbacks.on_train_end()
         return callbacks.history
+
+    def fit_without_personalize(
+            self,
+            x: Union[HDataFrame, FedNdarray, Dict[PYU, str]],
+            y: Union[HDataFrame, FedNdarray, str],
+            batch_size: Union[int, Dict[PYU, int]] = 32,
+            batch_sampling_rate: float = None,
+            epochs: int = 1,
+            verbose: int = 1,
+            callbacks=None,
+            validation_data=None,
+            shuffle=False,
+            class_weight=None,
+            sample_weight=None,
+            validation_freq=1,
+            aggregate_freq=1,
+            label_decoder=None,
+            max_batch_size=20000,
+            prefetch_buffer_size=None,
+            sampler_method='batch',
+            random_seed=None,
+            dp_spent_step_freq=None,
+            audit_log_dir=None,
+            dataset_builder: Dict[PYU, Callable] = None,
+            wait_steps=100,
+            aggregate=[],
+    ) -> Dict:
+        """Horizontal federated training interface
+
+        Args:
+            x: feature, FedNdArray, HDataFrame or Dict {PYU: model_path}
+            y: label, FedNdArray, HDataFrame or str(column name of label)
+            batch_size: Number of samples per gradient update, int or Dict, recommend 64 or more for safety
+            batch_sampling_rate: Ratio of sample per batch, float
+            epochs: Number of epochs to train the model
+            verbose: 0, 1. Verbosity mode
+            callbacks: List of `keras.callbacks.Callback` instances.
+            validation_data: Data on which to evaluate
+            shuffle: whether to shuffle the training data
+            class_weight: Dict mapping class indices (integers) to a weight (float)
+            sample_weight: weights for the training samples
+            validation_freq: specifies how many training epochs to run before a new validation run is performed
+            aggregate_freq: Number of steps of aggregation
+            label_decoder: Only used for CSV reading, for label preprocess
+            max_batch_size: Max limit of batch size
+            prefetch_buffer_size: An int specifying the number of feature batches to prefetch for performance improvement. Only for csv reader
+            sampler_method: The name of sampler method
+            random_seed: Prg seed for shuffling
+            dp_spent_step_freq: specifies how many training steps to check the budget of dp
+            audit_log_dir: path of audit log dir, checkpoint will be save if audit_log_dir is not None
+            dataset_builder: Callable function about hot to build the dataset. must return (dataset, steps_per_epoch)
+            wait_steps: A step size to indicate how many concurrent tasks should be waited, which could prevent the stuck of ray when more tasks join (default 100).
+        Returns:
+            A history object. It's history.global_history attribute is a
+            aggregated record of training loss values and metrics, while
+            history.local_history attribute is a record of training loss
+            values and metrics of each party.
+        """
+        if not random_seed:
+            random_seed = global_random([*self._workers][0], 100000)
+
+        params = locals()
+        logging.info(f"FL Train Params: {params}")
+
+        # sanity check
+        if self._aggregator is None:
+            if self.server_agg_method is None or self.server is None:
+                raise Exception(
+                    "When aggregator is none, neither the server nor the server_agg_method can be none"
+                )
+        assert isinstance(validation_freq, int) and validation_freq >= 1
+        assert isinstance(aggregate_freq, int) and aggregate_freq >= 1
+        if dp_spent_step_freq is not None:
+            assert (
+                    isinstance(dp_spent_step_freq, int) and dp_spent_step_freq >= 1
+            ), 'dp_spent_step_freq should be a integer and greater than or equal to 1!'
+
+        # build dataset
+        if isinstance(x, Dict):
+            if validation_data is not None:
+                valid_x, valid_y = validation_data, y
+            else:
+                valid_x, valid_y = None, None
+
+            train_steps_per_epoch = self._handle_file(
+                x,
+                y,
+                batch_size=batch_size,
+                sampling_rate=batch_sampling_rate,
+                shuffle=shuffle,
+                random_seed=random_seed,
+                epochs=epochs,
+                label_decoder=label_decoder,
+                max_batch_size=max_batch_size,
+                prefetch_buffer_size=prefetch_buffer_size,
+                dataset_builder=dataset_builder,
+            )
+        else:
+            assert type(x) == type(y), "x and y must be same data type"
+            if isinstance(x, HDataFrame) and isinstance(y, HDataFrame):
+                train_x, train_y = x.values, y.values
+            else:
+                train_x, train_y = x, y
+
+            if validation_data is not None:
+                valid_x, valid_y = validation_data[0], validation_data[1]
+            else:
+                valid_x, valid_y = None, None
+
+            train_steps_per_epoch = self._handle_data(
+                train_x,
+                train_y,
+                sample_weight=sample_weight,
+                batch_size=batch_size,
+                sampling_rate=batch_sampling_rate,
+                shuffle=shuffle,
+                random_seed=random_seed,
+                epochs=epochs,
+                sampler_method=sampler_method,
+                dataset_builder=dataset_builder,
+            )
+        # setup callback list
+        callbacks = CallbackList(
+            callbacks=callbacks,
+            add_history=True,
+            add_progbar=verbose != 0,
+            workers=self._workers,
+            device_y=None,
+            epochs=epochs,
+            verbose=verbose,
+            steps=train_steps_per_epoch,
+        )
+
+        initial_weight = self.initialize_weights()
+        logging.debug(f"initial_weight: {initial_weight}")
+        server_weight = None
+        if self.server and isinstance(initial_weight, PYUObject):
+            server_weight = initial_weight
+        callbacks.on_train_begin()
+        model_params = None
+        model_params_list = None
+        for epoch in range(epochs):
+            res = []
+            report_list = []
+            # do train
+            report_list.append(f"epoch: {epoch + 1}/{epochs} - ")
+            callbacks.on_epoch_begin(epoch=epoch)
+            for step in range(0, train_steps_per_epoch, aggregate_freq):
+                callbacks.on_train_batch_begin(batch=step)
+                client_param_list, sample_num_list = [], []
+                for idx, device in enumerate(self._workers.keys()):
+                    client_params = (
+                        model_params_list[idx].to(device)
+                        if model_params_list is not None
+                        else None
+                    )
+                    # refresh data-iter
+                    if step == 0:
+                        self.kwargs["refresh_data"] = True
+                    else:
+                        self.kwargs["refresh_data"] = False
+
+                    client_params, sample_num = self._workers[device].train_step(
+                        client_params,
+                        epoch * train_steps_per_epoch + step,
+                        (
+                            aggregate_freq
+                            if step + aggregate_freq < train_steps_per_epoch
+                            else train_steps_per_epoch - step
+                        ),
+                        **self.kwargs,
+                    )
+                    client_param_list.append(client_params)
+                    sample_num_list.append(sample_num)
+                    res.append(client_params)
+                if self._aggregator is not None:
+                    model_params = self._aggregator.average(
+                        client_param_list, axis=0, weights=sample_num_list
+                    )
+                else:
+                    if self.server is not None:
+                        # server will do aggregation
+                        model_params_list = [
+                            param.to(self.server) for param in client_param_list
+                        ]
+                        model_params_list = self.server(
+                            self.server_agg_method,
+                            num_returns=len(
+                                self.device_list,
+                            ),
+                        )(model_params_list)
+                        model_params_list = [
+                            params.to(device)
+                            for device, params in zip(
+                                self.device_list, model_params_list
+                            )
+                        ]
+                    else:
+                        raise Exception(
+                            "Aggregation can be on either an aggregator or a server, but not none at the same time"
+                        )
+
+                # Do weight sparsify
+                if self.strategy in COMPRESS_STRATEGY and server_weight:
+                    if self._res:
+                        self._res.to(self.server)
+                    agg_update = model_params.to(self.server)
+                    server_weight = server_weight.to(self.server)
+                    server_weight, model_params, self._res = self.server(
+                        do_compress, num_returns=3
+                    )(
+                        self.strategy,
+                        self.kwargs.get('sparsity', 0.0),
+                        server_weight,
+                        agg_update,
+                        self._res,
+                    )
+                    # Do sparse matrix encoding
+                    if self.strategy == 'fed_stc':
+                        model_params = model_params.to(self.server)
+                        model_params = self.server(sparse_encode, num_return=1)(
+                            data=model_params,
+                            encode_method='coo',
+                        )
+
+                # DP operation
+                if dp_spent_step_freq is not None and self.dp_strategy is not None:
+                    current_dp_step = math.ceil(
+                        epoch * train_steps_per_epoch / aggregate_freq
+                    ) + int(step / aggregate_freq)
+                    if current_dp_step % dp_spent_step_freq == 0:
+                        privacy_spent = self.dp_strategy.get_privacy_spent(
+                            current_dp_step
+                        )
+                        logging.debug(f'DP privacy accountant {privacy_spent}')
+                if len(res) == wait_steps:
+                    wait(res)
+                    res = []
+                if self._aggregator is not None:
+                    model_params_list = [model_params for _ in self.device_list]
+                    model_params_list = [
+                        params.to(device)
+                        for device, params in zip(self.device_list, model_params_list)
+                    ]
+                callbacks.on_train_batch_end(batch=step)
+            # last batch
+            for idx, device in enumerate(self._workers.keys()):
+                client_params = model_params_list[idx].to(device)
+                params_data = ray.get(client_params.data)
+                old_params = self._workers[device].get_weights(True)
+                aggregated_params = []
+                for param, old_param, agg in zip(ray.get(client_params.data), ray.get(old_params.data), aggregate):
+                    if agg == 1:
+                        aggregated_params.append(param)
+                    else:
+                        aggregated_params.append(old_param)
+                # print("old:",old_params,"new:",client_params,'now',aggregated_params)
+                client_params.data = ray.put(aggregated_params)
+                new_params_data = ray.get(client_params.data)
+                self._workers[device].apply_weights(client_params)
+            model_params_list = None
+
+            local_metrics_obj = []
+            for device, worker in self._workers.items():
+                local_metrics_obj.append(worker.wrap_local_metrics())
+
+            if epoch % validation_freq == 0 and valid_x is not None:
+                callbacks.on_test_begin()
+                global_eval, local_eval = self.evaluate(
+                    valid_x,
+                    valid_y,
+                    batch_size=batch_size,
+                    sample_weight=sample_weight,
+                    return_dict=True,
+                    label_decoder=label_decoder,
+                    random_seed=random_seed,
+                    sampler_method=sampler_method,
+                    dataset_builder=dataset_builder,
+                )
+                for device, worker in self._workers.items():
+                    worker.set_validation_metrics(global_eval)
+
+                # save checkpoint
+                if audit_log_dir is not None:
+                    epoch_model_path = os.path.join(
+                        audit_log_dir, "base_model", str(epoch)
+                    )
+                    self.save_model(
+                        model_path=epoch_model_path, is_test=self.simulation
+                    )
+                callbacks.on_test_end()
+            stop_trainings = [
+                reveal(worker.get_stop_training()) for worker in self._workers.values()
+            ]
+            if sum(stop_trainings) >= self.consensus_num:
+                break
+            callbacks.on_epoch_end(epoch=epoch)
+        callbacks.on_train_end()
+        return callbacks.history

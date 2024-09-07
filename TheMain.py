@@ -68,7 +68,7 @@ def save_user_data(user_id, item_ids, ratings, output_dir='.'):
     # 保存为CSV文件
     df.to_csv(file_path, index=False)
 
-# 定义模型
+# 定义模型1
 class RecModel(BaseModule):
     def __init__(self):
         super(RecModel, self).__init__()
@@ -82,7 +82,25 @@ class RecModel(BaseModule):
         x = self.fc(x)
         return torch.sigmoid(x)
 
-def trainFromdata(dataname, epochs=2,batch_size = 32):
+# 定义模型2
+class FedRAP(BaseModule):
+    def __init__(self):
+        super(FedRAP, self).__init__()
+        self.item_personality = nn.Embedding(num_embeddings=item_num, embedding_dim=32)
+        self.item_commonality = nn.Embedding(num_embeddings=item_num, embedding_dim=32)
+        self.affine_output = nn.Linear(in_features=32, out_features=1)
+
+    def forward(self, x):
+        x = x.long()  # 将输入转换为long类型
+        item_personality = self.item_personality(x)
+        item_commonality = self.item_commonality(x)
+        x = item_personality + item_commonality
+        x = x.view(x.size(0), -1)  # 展平嵌入层输出
+        logits = self.affine_output(x)
+        rating = torch.sigmoid(logits)
+        return rating
+
+def trainFromdata(dataname, epochs=2,batch_size = 32, modelchoose = 0):
     datas, _, _ ,i_num= dataLoder(dataname)
     global item_num
     item_num = i_num
@@ -123,13 +141,30 @@ def trainFromdata(dataname, epochs=2,batch_size = 32):
     ]
 
     # 定义模型
-    model_def = TorchModel(
-        model_fn=RecModel,
-        loss_fn=loss_fn,
-        optim_fn=optim_fn,
-        metrics=[
-            metric_wrapper(Accuracy, task="binary")]
-    )
+    if modelchoose == 0:
+        model_def = TorchModel(
+            model_fn=RecModel,
+            loss_fn=loss_fn,
+            optim_fn=optim_fn,
+            metrics=[
+                metric_wrapper(Accuracy, task="binary")]
+        )
+    elif modelchoose == 1:
+        model_def = TorchModel(
+            model_fn=FedRAP,
+            loss_fn=loss_fn,
+            optim_fn=optim_fn,
+            metrics=[
+                metric_wrapper(Accuracy, task="binary")]
+        )
+    else:
+        model_def = TorchModel(
+            model_fn=RecModel,
+            loss_fn=loss_fn,
+            optim_fn=optim_fn,
+            metrics=[
+                metric_wrapper(Accuracy, task="binary")]
+        )
 
     aggregator = SecureAggregator(server, participants=clients)
 
@@ -141,21 +176,45 @@ def trainFromdata(dataname, epochs=2,batch_size = 32):
         aggregator=aggregator,
         strategy='fed_avg_w',  # fl strategy
         backend="torch",  # backend support ['tensorflow', 'torch']
+        # aggregate=[1, 0, 0]
     )
-
-    fl_model.fit(
-        train_data,
-        train_label,
-        validation_data=(test_data, test_label),
-        epochs=epochs,
-        batch_size=batch_size,
-        aggregate_freq=1,
-        aggregate=[1, 0, 0]
-    )
+    if modelchoose == 0:
+        fl_model.fit(
+            train_data,
+            train_label,
+            validation_data=(test_data, test_label),
+            epochs=epochs,
+            batch_size=batch_size,
+            aggregate_freq=1,
+            aggregate=[1, 0, 0]
+        )
+    elif modelchoose == 1:
+        fl_model.fit_without_personalize(
+            train_data,
+            train_label,
+            validation_data=(test_data, test_label),
+            epochs=epochs,
+            batch_size=batch_size,
+            aggregate_freq=1,
+            aggregate=[0, 1, 0, 0]
+        )
+    else:
+        fl_model.fit(
+            train_data,
+            train_label,
+            validation_data=(test_data, test_label),
+            epochs=epochs,
+            batch_size=batch_size,
+            aggregate_freq=1,
+            aggregate=[1, 0, 0]
+        )
     return fl_model,num,clients
-def savemodel(model,clients,modelname,selected_dataset,num):
+def savemodel(model,clients,modelname,selected_dataset,num, modelchoose = 0):
     # 文件夹路径
-    directory_path = f"model/{modelname}-{selected_dataset}-{num}"
+    if modelchoose == 1:
+        directory_path = f"model/{modelname}-{'FedRAP'}-{selected_dataset}-{num}"
+    else:
+        directory_path = f"model/{modelname}-{selected_dataset}-{num}"
 
     # 文件夹
     os.makedirs(directory_path, exist_ok=True)
@@ -203,16 +262,25 @@ def loadmodel(modelname):
         i_num = 107
     global item_num
     item_num = i_num
-
+    modelchoosename = str(modelname.split('-')[-3])
     # 定义模型
-    model_def = TorchModel(
-        model_fn=RecModel,
-        loss_fn=loss_fn,
-        optim_fn=optim_fn,
-        metrics=[
-            metric_wrapper(Accuracy, task="binary")]
-    )
-
+    if modelchoosename == "FedRAP":
+        print("FedRAP")
+        model_def = TorchModel(
+            model_fn=FedRAP,
+            loss_fn=loss_fn,
+            optim_fn=optim_fn,
+            metrics=[
+                metric_wrapper(Accuracy, task="binary")]
+        )
+    else:
+        model_def = TorchModel(
+            model_fn=RecModel,
+            loss_fn=loss_fn,
+            optim_fn=optim_fn,
+            metrics=[
+                metric_wrapper(Accuracy, task="binary")]
+        )
     aggregator = SecureAggregator(server, participants=clients)
 
     # spcify params
@@ -223,7 +291,7 @@ def loadmodel(modelname):
         aggregator=aggregator,
         strategy='fed_avg_w',  # fl strategy
         backend="torch",  # backend support ['tensorflow', 'torch']
-        aggregate=[1, 0, 0]
+        # aggregate=[1, 0, 0]
     )
     # 文件夹路径
     directory_path = f"model/{modelname}"
@@ -379,7 +447,7 @@ def totaldata(dataname):
             })
         df.to_csv(f"total-client-{user_id}.csv", index=False)
 
-def evaluate(model,clients,server,dataname,batch_size = 32):
+def evalute(model,clients,server,dataname,batch_size = 32):
     textdata(dataname)
     num = len(clients)
     path_dict = {}
@@ -464,16 +532,18 @@ def main():
         datasets = list_datasets()
         if datasets:
             dataset_choice = input("输入数据集序号进行训练: ")
+            print("0.个性化联邦推荐模型，1.加性个性化联邦推荐模型")
+            modelchoose = input("选择要训练的模型:")
             try:
                 selected_dataset = datasets[int(dataset_choice) - 1]
                 epochs = input("设置epochs: ")
                 batch_size = input("设置batch_size: ")
-                model, num, clients= trainFromdata(selected_dataset,int(epochs),int(batch_size))
+                model, num, clients= trainFromdata(selected_dataset,int(epochs),int(batch_size),int(modelchoose))
                 print("0.保存模型，1.直接结束")
                 issave = input("选择接下来的操作:")
                 if issave == '0':
                     inputfilename = input("请输入模型名:")
-                    savemodel(model, clients, inputfilename, selected_dataset, num)
+                    savemodel(model, clients, inputfilename, selected_dataset, num, int(modelchoose))
                     print("已保存，自动退出")
                 if issave == '1':
                     return
@@ -504,13 +574,13 @@ def main():
         if models:
             model_choice = input("输入模型序号进行加载: ")
             batch_size = input("设置batch_size: ")
-            try:
-                selected_model = models[int(model_choice) - 1]
-                model, clients, server = loadmodel(selected_model)
-                hit_ratio, ndcg = evaluate(model, clients, server, selected_model.split('-')[-2], int(batch_size))
-                print('模型的命中率HR@10为:', hit_ratio,'归一化折损累计增益NDCG@10为:', ndcg)
-            except (IndexError, ValueError):
-                print("无效选择. 请重新输入.")
+            # try:
+            selected_model = models[int(model_choice) - 1]
+            model, clients, server = loadmodel(selected_model)
+            hit_ratio, ndcg = evalute(model, clients, server, selected_model.split('-')[-2], int(batch_size))
+            print('模型的命中率HR@10为:', hit_ratio,'归一化折损累计增益NDCG@10为:', ndcg)
+            # except (IndexError, ValueError):
+            #     print("无效选择. 请重新输入.")
     else:
         print("无效选择. 请输入 1, 2, 或者 3.")
 
