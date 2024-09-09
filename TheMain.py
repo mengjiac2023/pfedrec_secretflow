@@ -268,7 +268,7 @@ def loadmodel(modelname):
     modelchoosename = str(modelname.split('-')[1])
     # 定义模型
     if modelchoosename == "2":
-        print("FedRAP")
+        # print("FedRAP")
         model_def = TorchModel(
             model_fn=FedRAP,
             loss_fn=loss_fn,
