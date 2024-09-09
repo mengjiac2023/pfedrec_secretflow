@@ -6,3 +6,7 @@
 ```bash 
 docker run -it secretflow/secretflow-anolis8:latest
 ```
+### 运行
+```bash 
+python TheMain.py
+```
