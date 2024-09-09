@@ -18,9 +18,9 @@ def dataLoder(dataname):
     elif dataname == "amazon":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
         rating = rating.sort_values(by='uid', ascending=True)
-    elif dataname == "setdata":
+    elif dataname == "ml-100k-mini1":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
-    elif dataname == "setdata2":
+    elif dataname == "ml-100k-mini2":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
     else:
         pass

@@ -212,9 +212,9 @@ def trainFromdata(dataname, epochs=2,batch_size = 32, modelchoose = 0):
 def savemodel(model,clients,modelname,selected_dataset,num, modelchoose = 0):
     # 文件夹路径
     if modelchoose == 1:
-        directory_path = f"model/{modelname}-{'FedRAP'}-{selected_dataset}-{num}"
+        directory_path = f"model/{modelname}-{'2'}-{selected_dataset}-{num}"
     else:
-        directory_path = f"model/{modelname}-{selected_dataset}-{num}"
+        directory_path = f"model/{modelname}-{'1'}-{selected_dataset}-{num}"
 
     # 文件夹
     os.makedirs(directory_path, exist_ok=True)
@@ -247,7 +247,8 @@ def loadmodel(modelname):
         metric_wrapper(Accuracy, task="binary"),
         metric_wrapper(Precision, task="binary")
     ]
-    dataname = modelname.split('-')[-2]
+    parts = modelname.split('-')
+    dataname = '-'.join(parts[2:-1])
     if dataname == "ml-1m":
         i_num = 3706
     elif dataname == "ml-100k":
@@ -256,15 +257,17 @@ def loadmodel(modelname):
         i_num = 12454
     elif dataname == "amazon":
         i_num = 11830
-    elif dataname == "setdata":
+    elif dataname == "ml-100k-mini1":
+        i_num = 107
+    elif dataname == "ml-100k-mini2":
         i_num = 107
     else:
         i_num = 107
     global item_num
     item_num = i_num
-    modelchoosename = str(modelname.split('-')[-3])
+    modelchoosename = str(modelname.split('-')[1])
     # 定义模型
-    if modelchoosename == "FedRAP":
+    if modelchoosename == "2":
         print("FedRAP")
         model_def = TorchModel(
             model_fn=FedRAP,
@@ -378,7 +381,9 @@ def negativedata(dataname):
     elif dataname == "amazon":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
         rating = rating.sort_values(by='uid', ascending=True)
-    elif dataname == "setdata":
+    elif dataname == "ml-100k-mini1":
+        rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
+    elif dataname == "ml-100k-mini2":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
     else:
         pass
@@ -419,7 +424,9 @@ def totaldata(dataname):
     elif dataname == "amazon":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
         rating = rating.sort_values(by='uid', ascending=True)
-    elif dataname == "setdata":
+    elif dataname == "ml-100k-mini1":
+        rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
+    elif dataname == "ml-100k-mini2":
         rating = pd.read_csv(dataset_dir, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
     else:
         pass
@@ -523,7 +530,7 @@ def textdata(dataname):
 def main():
     print("功能列表:")
     print("1. 模型训练")
-    print("2. 推荐商品")
+    print("2. 商品推荐")
     print("3. 模型评估")
 
     choice = input("选择执行的功能: ")
@@ -531,19 +538,19 @@ def main():
     if choice == '1':
         datasets = list_datasets()
         if datasets:
-            dataset_choice = input("输入数据集序号进行训练: ")
-            print("0.个性化联邦推荐模型，1.加性个性化联邦推荐模型")
-            modelchoose = input("选择要训练的模型:")
+            dataset_choice = input("输入要执行训练的数据集序号: ")
+            print("1.个性化联邦推荐模型，2.加性个性化联邦推荐模型")
+            modelchoose = input("选择待训练模型序号:")
             try:
                 selected_dataset = datasets[int(dataset_choice) - 1]
                 epochs = input("设置epochs: ")
                 batch_size = input("设置batch_size: ")
-                model, num, clients= trainFromdata(selected_dataset,int(epochs),int(batch_size),int(modelchoose))
+                model, num, clients= trainFromdata(selected_dataset,int(epochs),int(batch_size),int(modelchoose)-1)
                 print("0.保存模型，1.直接结束")
                 issave = input("选择接下来的操作:")
                 if issave == '0':
-                    inputfilename = input("请输入模型名:")
-                    savemodel(model, clients, inputfilename, selected_dataset, num, int(modelchoose))
+                    inputfilename = input("请为模型命名:")
+                    savemodel(model, clients, inputfilename, selected_dataset, num, int(modelchoose)-1)
                     print("已保存，自动退出")
                 if issave == '1':
                     return
@@ -553,17 +560,19 @@ def main():
     elif choice == '2':
         models = list_models()
         if models:
-            model_choice = input("输入模型序号进行加载: ")
+            model_choice = input("输入要加载的模型序号: ")
             try:
                 selected_model = models[int(model_choice) - 1]
                 model,clients,server = loadmodel(selected_model)
                 print("0.从所有商品进行推荐，1.从未评分商品进行推荐")
                 choose = input("选择接下来的操作:")
                 batch_size = input("设置batch_size: ")
+                parts = selected_model.split('-')
+                namedata = '-'.join(parts[2:-1])
                 if choose == '0':
-                    top10_list = predictFromtotal(model, clients, server, selected_model.split('-')[-2], int(batch_size))
+                    top10_list = predictFromtotal(model, clients, server, namedata, int(batch_size))
                 else:
-                    top10_list = predictFromnegative(model, clients, server, selected_model.split('-')[-2], int(batch_size))
+                    top10_list = predictFromnegative(model, clients, server, namedata, int(batch_size))
                 for i in range(len(top10_list)):
                     print('client-',i,'推荐前十商品为',top10_list[i])
             except (IndexError, ValueError):
@@ -572,12 +581,14 @@ def main():
     elif choice == '3':
         models = list_models()
         if models:
-            model_choice = input("输入模型序号进行加载: ")
+            model_choice = input("输入要加载的模型序号: ")
             batch_size = input("设置batch_size: ")
             # try:
             selected_model = models[int(model_choice) - 1]
             model, clients, server = loadmodel(selected_model)
-            hit_ratio, ndcg = evalute(model, clients, server, selected_model.split('-')[-2], int(batch_size))
+            parts = selected_model.split('-')
+            namedata = '-'.join(parts[2:-1])
+            hit_ratio, ndcg = evalute(model, clients, server, namedata, int(batch_size))
             print('模型的命中率HR@10为:', hit_ratio,'归一化折损累计增益NDCG@10为:', ndcg)
             # except (IndexError, ValueError):
             #     print("无效选择. 请重新输入.")
