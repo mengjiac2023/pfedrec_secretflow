@@ -105,6 +105,9 @@
 ### 安装
 通过docker配置隐语环境即可，运行SecretFlow的docker image命令为
 ```bash 
+docker pull -it secretflow/secretflow-anolis8:latest
+```
+```bash 
 docker run -it secretflow/secretflow-anolis8:latest
 ```
 ### 运行
