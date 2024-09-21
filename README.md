@@ -73,13 +73,25 @@
   <img src="./images/功能1_2.png" alt="Func1_2" />
    </div>
 - **商品推荐**: 选择模型进行加载，设置推荐商品范围和batch_size进行推荐。
-  ![Func2_1](./images/功能2_1.png "Func2_1")
-  ![Func2_2](./images/功能2_2.png "Func2_2")
-  ![Func2_3](./images/功能2_3.png "Func2_3")
+  <div style="text-align: left;">
+  <img src="./images/功能2_1.png" alt="Func2_1" />
+   </div>
+   <div style="text-align: left;">
+  <img src="./images/功能2_2.png" alt="Func2_2" />
+   </div>
+   <div style="text-align: left;">
+  <img src="./images/功能2_3.png" alt="Func2_3" />
+   </div>
 - **模型评估**: 选择模型进行加载，设置batch_size进行评估。
-  ![Func3_1](./images/功能3_1.png "Func3_1")
-  ![Func3_2](./images/功能3_2.png "Func3_2")
-  ![Func3_3](./images/功能3_3.png "Func3_3")
+  <div style="text-align: left;">
+  <img src="./images/功能3_1.png" alt="Func3_1" />
+   </div>
+   <div style="text-align: left;">
+  <img src="./images/功能3_2.png" alt="Func3_2" />
+   </div>
+   <div style="text-align: left;">
+  <img src="./images/功能3_3.png" alt="Func3_3" />
+   </div>
 
 ## 贡献
 
