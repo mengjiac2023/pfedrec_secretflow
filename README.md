@@ -66,8 +66,12 @@
   <img src="./images/主界面.png" alt="Main Interface" />
    </div>
 - **模型训练**: 选择数据集和模型，设置epochs和batch_size进行训练。
-  ![Func1_1](./images/功能1_1.png "Func1_1")
-  ![Func1_2](./images/功能1_2.png "Func1_2")
+  <div style="text-align: left;">
+  <img src="./images/功能1_1.png" alt="Func1_1" />
+   </div>
+   <div style="text-align: left;">
+  <img src="./images/功能1_2.png" alt="Func1_2" />
+   </div>
 - **商品推荐**: 选择模型进行加载，设置推荐商品范围和batch_size进行推荐。
   ![Func2_1](./images/功能2_1.png "Func2_1")
   ![Func2_2](./images/功能2_2.png "Func2_2")
