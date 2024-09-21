@@ -64,7 +64,7 @@
 - **主界面**: 提供模型训练、商品推荐、模型评估三个功能。
   <div style="text-align: left;">
   <img src="./images/主界面.png" alt="Main Interface" />
-</div>
+   </div>
 - **模型训练**: 选择数据集和模型，设置epochs和batch_size进行训练。
   ![Func1_1](./images/功能1_1.png "Func1_1")
   ![Func1_2](./images/功能1_2.png "Func1_2")
