@@ -62,9 +62,18 @@
 ## 效果展示
 
 - **主界面**: 提供模型训练、商品推荐、模型评估三个功能。
+  ![Main Interface](./images/主界面.png "Main Interface")
 - **模型训练**: 选择数据集和模型，设置epochs和batch_size进行训练。
+  ![Func1_1](./images/功能1_1.png "Func1_1")
+  ![Func1_2](./images/功能1_2.png "Func1_2")
 - **商品推荐**: 选择模型进行加载，设置推荐商品范围和batch_size进行推荐。
+  ![Func2_1](./images/功能2_1.png "Func2_1")
+  ![Func2_2](./images/功能2_2.png "Func2_2")
+  ![Func2_3](./images/功能2_3.png "Func2_3")
 - **模型评估**: 选择模型进行加载，设置batch_size进行评估。
+  ![Func3_1](./images/功能3_1.png "Func3_1")
+  ![Func3_2](./images/功能3_2.png "Func3_2")
+  ![Func3_3](./images/功能3_3.png "Func3_3")
 
 ## 贡献
 
