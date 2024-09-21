@@ -89,10 +89,7 @@
    <div style="text-align: left;">
   <img src="./images/功能3_2.png" alt="Func3_2" />
    </div>
-   <div style="text-align: left;">
-  <img src="./images/功能3_3.png" alt="Func3_3" />
-   </div>
-
+   
 ## 贡献
 
 欢迎对本项目进行贡献，包括但不限于：
