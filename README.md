@@ -56,7 +56,7 @@
 
 ### 2.3 数据处理方法
 
-使用MovieLens-100K、MovieLens-1M、Lastfm-2K和Amazon-Video数据集，采用隐式推荐的方法，设置正样本和负样本，进行模型训练和评估。
+使用MovieLens-100K、MovieLens-1M、Lastfm-2K和Amazon-Video数据集，采用隐式推荐方法，设置正样本和负样本，进行模型训练和评估。
 
 ## 效果展示
 
