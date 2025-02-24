@@ -51,6 +51,9 @@
 
 ### 2.1 隐语技术
 
+  <div style="text-align: left;">
+  <img src="./images/隐语.jpg" alt="Main Interface" />
+   </div>
 采用隐语的水平联邦模型和安全聚合技术，通过继承隐语的FLModel类，重写其fit()方法，得到了NewFLModel类，实现了选择性参数聚合和个性化训练。
 
 ### 2.2 算法模型
@@ -107,7 +110,7 @@
 
 ## 许可证
 
-本项目采用[MIT许可证](LICENSE)。
+本项目采用[Apache许可证](LICENSE)。
 
 ### 安装
 通过docker配置隐语环境即可，运行SecretFlow的docker image命令为
