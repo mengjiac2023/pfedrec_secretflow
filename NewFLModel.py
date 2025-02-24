@@ -573,7 +573,7 @@ class NewFLModel(FLModel):
                         aggregated_params.append(param)
                     else:
                         aggregated_params.append(old_param)
-                # print("old:",old_params,"new:",client_params,'now',aggregated_params)
+                
                 client_params.data = ray.put(aggregated_params)
                 new_params_data = ray.get(client_params.data)
                 self._workers[device].apply_weights(client_params)
