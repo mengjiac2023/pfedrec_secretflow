@@ -80,7 +80,7 @@
    </div>
 - **商品推荐**: 选择模型进行加载，设置推荐商品范围和batch_size进行推荐。
   <div style="text-align: left;">
-  <img src="./images/功能2_1.png" alt="Func2_1" />
+  <img src="./images/功能3_1.png" alt="Func2_1" />
    </div>
    <div style="text-align: left;">
   <img src="./images/功能2_2.png" alt="Func2_2" />
@@ -90,7 +90,7 @@
    </div>
 - **模型评估**: 选择模型进行加载，设置batch_size进行评估。
   <div style="text-align: left;">
-  <img src="./images/功能3_1.png" alt="Func3_1" />
+  <img src="./images/功能2_1.png" alt="Func3_1" />
    </div>
    <div style="text-align: left;">
   <img src="./images/功能3_2.png" alt="Func3_2" />
